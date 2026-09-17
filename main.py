@@ -23,6 +23,7 @@ except ImportError:
 # Configuration
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api/v1")
+WEB_APP_URL = os.getenv("WEB_APP_URL", os.getenv("FRONTEND_URL", "http://127.0.0.1:5173"))
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -49,23 +50,54 @@ PAYMENT_METHOD_NAMES = {
 
 
 def get_main_keyboard():
-    """Asosiy menyu tugmalari"""
+    """Asosiy menyu pastki tugmalari"""
     return ReplyKeyboardMarkup(
         keyboard=[
             [
-                KeyboardButton(text="👨\u200d👩\u200d👧 Farzandimni bog'lash"),
-                KeyboardButton(text="📚 Kurslar va Narxlar")
+                KeyboardButton(text="📱 O'quvchi Kabineti", web_app=types.WebAppInfo(url=f"{WEB_APP_URL}/student")),
+                KeyboardButton(text="👨‍🏫 O'qituvchi Kabineti", web_app=types.WebAppInfo(url=f"{WEB_APP_URL}/teacher")),
+            ],
+            [
+                KeyboardButton(text="👨‍👩‍👧 Farzandimni bog'lash"),
+                KeyboardButton(text="📖 Fanlar va Narxlar")
             ],
             [
                 KeyboardButton(text="💳 To'lov holati"),
                 KeyboardButton(text="📊 Davomat")
             ],
             [
-                KeyboardButton(text="📝 Sinov darsiga yozilish"),
-                KeyboardButton(text="📞 Telefon yuborish", request_contact=True)
+                KeyboardButton(text="👨‍🏫 O'qituvchi Menyusi"),
+                KeyboardButton(text="📞 Kontakt ulashish", request_contact=True)
             ],
         ],
         resize_keyboard=True
+    )
+
+
+def get_start_inline_keyboard():
+    """Xabar ostidagi tezkor interaktiv tugmalar (TMA va havolalar)"""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📱 O'quvchi Kabineti (TMA)", web_app=types.WebAppInfo(url=f"{WEB_APP_URL}/student")),
+                InlineKeyboardButton(text="👨‍🏫 O'qituvchi Kabineti (TMA)", web_app=types.WebAppInfo(url=f"{WEB_APP_URL}/teacher")),
+            ],
+            [
+                InlineKeyboardButton(text="🌐 Brauzerda Ochish (O'qituvchi)", url=f"{WEB_APP_URL}/teacher"),
+                InlineKeyboardButton(text="🌐 Brauzerda Ochish (O'quvchi)", url=f"{WEB_APP_URL}/student"),
+            ],
+            [
+                InlineKeyboardButton(text="📖 Fanlar va Narxlar", callback_data="show_courses_inline"),
+                InlineKeyboardButton(text="💳 To'lov holati", callback_data="show_payment_inline"),
+            ],
+            [
+                InlineKeyboardButton(text="📊 Davomat", callback_data="show_attendance_inline"),
+                InlineKeyboardButton(text="👨‍🏫 O'qituvchi Bot Rejimi", callback_data="teacher_mode_inline"),
+            ],
+            [
+                InlineKeyboardButton(text="👨‍👩‍👧 Farzandni bog'lash (6 talik ID)", callback_data="link_student_inline"),
+            ]
+        ]
     )
 
 
@@ -75,24 +107,36 @@ def format_number(num: float) -> str:
 
 
 # ============================================================
-# /start - Salomlashish
+# /start, /menu, /help - Salomlashish va Asosiy Menyu
 # ============================================================
 @dp.message(CommandStart())
+@dp.message(F.text.in_(["/menu", "/help", "Bosh menyu", "Menyu"]))
 async def cmd_start(message: types.Message):
     welcome_text = (
         f"🏫 <b>Ta'lim Plus Education Center</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"Assalomu alaykum, <b>{message.from_user.first_name}</b>! 👋\n\n"
-        f"Rasmiy botimizga xush kelibsiz.\n\n"
-        f"<b>Bu bot orqali siz:</b>\n"
-        f"👨\u200d👩\u200d👧 Farzandingizni 6 talik ID raqami bilan bog'lab,\n"
-        f"💳 <b>To'lov holati</b> va tarixini ko'rishingiz,\n"
-        f"📊 <b>Davomat statistikasi</b>ni kuzatishingiz,\n"
-        f"📚 <b>Kurslar</b> haqida ma'lumot olishingiz mumkin!\n\n"
+        f"Rasmiy boshqaruv botimizga xush kelibsiz.\n\n"
+        f"<b>Quyidagi imkoniyatlardan foydalanishingiz mumkin:</b>\n"
+        f"📱 <b>O'quvchi Kabineti</b> — Baholar, tangalar, vazifalar va davomat\n"
+        f"👨‍🏫 <b>O'qituvchi Kabineti</b> — Guruhlar, dars jurnali va davomat belgilash\n"
+        f"👨‍👩‍👧 <b>Farzandni bog'lash</b> — 6 talik unikal ID raqam orqali\n"
+        f"💳 <b>To'lov holati</b> — Oylik to'lovlar, qarz va haqdorlik hisobi\n"
+        f"📊 <b>Davomat</b> — Darslarga qatnashish statistikasi\n"
+        f"📖 <b>Fanlar va Tariflar</b> — Narxlar va kurslar ro'yxati\n\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"⬇️ <b>Pastdagi tugmalardan birini tanlang:</b>"
+        f"⬇️ <b>Kerakli bo'limni tanlang:</b>"
     )
-    await message.answer(welcome_text, reply_markup=get_main_keyboard(), parse_mode="HTML")
+    await message.answer(
+        welcome_text, 
+        reply_markup=get_main_keyboard(), 
+        parse_mode="HTML"
+    )
+    await message.answer(
+        "⚡️ <b>Tezkor havolalar va TMA WebApp:</b>",
+        reply_markup=get_start_inline_keyboard(),
+        parse_mode="HTML"
+    )
 
 
 # ============================================================
@@ -175,22 +219,22 @@ async def link_student_by_id(message: types.Message):
 
 
 # ============================================================
-# "Kurslar va Narxlar" tugmasi
+# "Fanlar va Narxlar" tugmasi
 # ============================================================
-@dp.message(F.text.contains("Kurslar va Narxlar"))
+@dp.message(F.text.contains("Fanlar va Narxlar") | F.text.contains("Kurslar va Narxlar"))
 async def show_courses(message: types.Message):
     async with httpx.AsyncClient() as client:
         try:
             res = await client.get(f"{API_BASE_URL}/courses/", timeout=5.0)
             courses = res.json()
             if not courses:
-                await message.answer("📚 Hozircha faol kurslar mavjud emas.")
+                await message.answer("📖 Hozircha faol fanlar mavjud emas.")
                 return
 
-            text = "📚 <b>MAVJUD KURSLAR</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            text = "📖 <b>MAVJUD FANLAR VA NARXLAR</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
             for i, c in enumerate(courses, 1):
                 text += f"<b>{i}. {c['title']}</b>\n"
-                text += f"   💰 Oylik: <b>{c['price_monthly']:,.0f} so'm</b>\n"
+                text += f"   💰 Oylik to'lov: <b>{c['price_monthly']:,.0f} so'm</b>\n"
                 text += f"   ⏱ Davomiyligi: {c['duration_months']} oy\n"
                 if c.get('description'):
                     text += f"   📝 {c['description'][:80]}\n"
@@ -203,9 +247,9 @@ async def show_courses(message: types.Message):
             )
             await message.answer(text, parse_mode="HTML")
         except Exception as e:
-            logger.error(f"Kurslar olishda xatolik: {e}")
+            logger.error(f"Fanlar olishda xatolik: {e}")
             await message.answer(
-                "📚 Kurslar ro'yxatini yuklashda xatolik yuz berdi.\n"
+                "📖 Fanlar ro'yxatini yuklashda xatolik yuz berdi.\n"
                 "Qaytadan urinib ko'ring.",
                 parse_mode="HTML"
             )
@@ -436,7 +480,7 @@ async def show_attendance_details(msg, chat_id: str, student_id: int, client: ht
     if data.get('group_name'):
         text += f"📚 Guruh: <b>{data['group_name']}</b>\n"
     if data.get('course_title'):
-        text += f"📖 Kurs: <b>{data['course_title']}</b>\n"
+        text += f"📖 Fan: <b>{data['course_title']}</b>\n"
     if data.get('days_of_week'):
         text += f"📅 Kunlar: <b>{data['days_of_week']}</b>\n"
 
@@ -572,6 +616,124 @@ async def handle_contact(message: types.Message):
         f"Tez orada siz bilan bog'lanamiz! 🤝",
         parse_mode="HTML"
     )
+
+
+# ============================================================
+# O'qituvchi Kabineti / Rejimi
+# ============================================================
+@dp.message(F.text.contains("O'qituvchi Menyusi") | F.text.contains("O'qituvchi Kabineti") | F.text.in_(["/teacher", "/ustoz"]))
+@dp.callback_query(F.data == "teacher_mode_inline")
+async def show_teacher_mode(event: types.Message | CallbackQuery):
+    message = event if isinstance(event, types.Message) else event.message
+    if isinstance(event, CallbackQuery):
+        await event.answer()
+
+    text = (
+        f"👨‍🏫 <b>O'QITUVCHI KABINETI VA BOSHQARUV PORTALI</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"Hurmatli ustoz! Quyidagi usullar orqali o'z kabinetingizga kirishingiz mumkin:\n\n"
+        f"1️⃣ <b>Telegram WebApp (TMA) orqali:</b>\n"
+        f"   Pastdagi <b>'👨‍🏫 O'qituvchi Kabineti (TMA)'</b> tugmasini bosing.\n\n"
+        f"2️⃣ <b>Brauzer orqali to'g'ridan-to'g'ri:</b>\n"
+        f"   🔗 <a href='{WEB_APP_URL}/teacher'>{WEB_APP_URL}/teacher</a>\n\n"
+        f"3️⃣ <b>Tizimga kirish:</b>\n"
+        f"   🔗 <a href='{WEB_APP_URL}/login'>{WEB_APP_URL}/login</a>\n\n"
+        f"📋 <b>Kabinetda siz:</b>\n"
+        f"  • Biriktirilgan guruhlaringizni ko'rish\n"
+        f"  • Har dars uchun davomat belgilash\n"
+        f"  • Uyga vazifalar berish va baholash\n"
+        f"  • O'quvchilarga coin (tanga) berish imkoniyatiga egasiz!\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    )
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📱 O'qituvchi Kabineti (TMA)", web_app=types.WebAppInfo(url=f"{WEB_APP_URL}/teacher")),
+        ],
+        [
+            InlineKeyboardButton(text="🌐 Brauzerda Ochish", url=f"{WEB_APP_URL}/teacher"),
+            InlineKeyboardButton(text="🔐 Login Sahifasi", url=f"{WEB_APP_URL}/login"),
+        ],
+        [
+            InlineKeyboardButton(text="⬅️ Bosh Menyu", callback_data="main_menu_inline")
+        ]
+    ])
+
+    await message.answer(text, reply_markup=kb, parse_mode="HTML", disable_web_page_preview=True)
+
+
+# ============================================================
+# O'quvchi Kabineti
+# ============================================================
+@dp.message(F.text.contains("O'quvchi Kabineti") | F.text.in_(["/student", "/oquvchi"]))
+@dp.callback_query(F.data == "student_mode_inline")
+async def show_student_mode(event: types.Message | CallbackQuery):
+    message = event if isinstance(event, types.Message) else event.message
+    if isinstance(event, CallbackQuery):
+        await event.answer()
+
+    text = (
+        f"📱 <b>O'QUVCHI SHAXSIY KABINETI</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"Hurmatli o'quvchi / ota-ona!\n\n"
+        f"1️⃣ <b>Telegram WebApp (TMA) orqali:</b>\n"
+        f"   Pastdagi <b>'📱 O'quvchi Kabineti (TMA)'</b> tugmasini bosing.\n\n"
+        f"2️⃣ <b>Brauzer orqali:</b>\n"
+        f"   🔗 <a href='{WEB_APP_URL}/student'>{WEB_APP_URL}/student</a>\n\n"
+        f"📋 <b>Imkoniyatlar:</b>\n"
+        f"  • Dars jadvali va xonalar\n"
+        f"  • To'plangan tangalar (Coin) va reyting\n"
+        f"  • Uyga vazifalar va topshirish\n"
+        f"  • To'lovlar va qarzdorlik hisobi\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    )
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📱 O'quvchi Kabineti (TMA)", web_app=types.WebAppInfo(url=f"{WEB_APP_URL}/student")),
+        ],
+        [
+            InlineKeyboardButton(text="🌐 Brauzerda Ochish", url=f"{WEB_APP_URL}/student"),
+        ],
+        [
+            InlineKeyboardButton(text="⬅️ Bosh Menyu", callback_data="main_menu_inline")
+        ]
+    ])
+
+    await message.answer(text, reply_markup=kb, parse_mode="HTML", disable_web_page_preview=True)
+
+
+# ============================================================
+# Inline Callbacks Handlers
+# ============================================================
+@dp.callback_query(F.data == "main_menu_inline")
+async def callback_main_menu(callback: CallbackQuery):
+    await callback.answer()
+    await cmd_start(callback.message)
+
+
+@dp.callback_query(F.data == "show_courses_inline")
+async def callback_courses(callback: CallbackQuery):
+    await callback.answer()
+    await show_courses(callback.message)
+
+
+@dp.callback_query(F.data == "show_payment_inline")
+async def callback_payment_menu(callback: CallbackQuery):
+    await callback.answer()
+    await show_payment_status(callback.message)
+
+
+@dp.callback_query(F.data == "show_attendance_inline")
+async def callback_attendance_menu(callback: CallbackQuery):
+    await callback.answer()
+    await show_attendance(callback.message)
+
+
+@dp.callback_query(F.data == "link_student_inline")
+async def callback_link_student(callback: CallbackQuery):
+    await callback.answer()
+    await prompt_student_id(callback.message)
 
 
 # ============================================================
