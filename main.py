@@ -340,10 +340,10 @@ async def show_payment_details(msg, chat_id: str, student_id: int, client: httpx
     month_names = {
         "01": "Yanvar", "02": "Fevral", "03": "Mart", "04": "Aprel",
         "05": "May", "06": "Iyun", "07": "Iyul", "08": "Avgust",
-        "09": "Sentyabr", "10": "Oktyabr", "11": "Noyabr", "12": "Dekabr"
+        "09": "Sentabr", "10": "Oktabr", "11": "Noyabr", "12": "Dekabr"
     }
     month_parts = data['current_month'].split('-')
-    month_name = month_names.get(month_parts[1], month_parts[1]) if len(month_parts) == 2 else data['current_month']
+    month_formatted = f"{month_names.get(month_parts[1], month_parts[1])}, {month_parts[0]}" if len(month_parts) == 2 else data['current_month']
 
     status_emoji = "✅ TO'LANGAN" if data['is_paid'] else "❌ TO'LANMAGAN"
 
@@ -352,7 +352,7 @@ async def show_payment_details(msg, chat_id: str, student_id: int, client: httpx
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"👤 O'quvchi: <b>{data['student_name']}</b>\n"
         f"🆔 ID: <code>{data['login_id']}</code>\n\n"
-        f"📅 Joriy oy: <b>{data['current_month']} ({month_name})</b>\n"
+        f"📅 Joriy oy: <b>{month_formatted}</b>\n"
         f"💰 Oylik to'lov: <b>{format_number(data['monthly_fee'])} so'm</b>\n"
         f"✅ To'langan: <b>{format_number(data['month_amount_paid'])} so'm</b>\n"
         f"📊 Qoldiq: <b>{format_number(data['remaining'])} so'm</b>\n"
@@ -778,7 +778,22 @@ async def main():
     logger.info("=" * 50)
     logger.info("🤖 Ta'lim Plus Telegram Bot ishga tushmoqda...")
     logger.info(f"📡 API: {API_BASE_URL}")
+    logger.info(f"🌐 Web App URL: {WEB_APP_URL}")
     logger.info("=" * 50)
+
+    # Bot chap pastki burchagidagi "Open" / "📱 Ilova" Menu tugmasini avtomatik sozlash
+    try:
+        from aiogram.types import MenuButtonWebApp, WebAppInfo
+        if WEB_APP_URL and WEB_APP_URL.startswith("http"):
+            await bot.set_chat_menu_button(
+                menu_button=MenuButtonWebApp(
+                    text="📱 Open",
+                    web_app=WebAppInfo(url=WEB_APP_URL)
+                )
+            )
+            logger.info("✅ Menu Button (Open) muvaffaqiyatli sozlandi!")
+    except Exception as e:
+        logger.warning(f"Menu Button sozlashda ogohlantirish: {e}")
 
     await dp.start_polling(bot)
 
